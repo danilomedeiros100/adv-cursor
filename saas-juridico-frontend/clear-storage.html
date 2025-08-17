@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Limpar Storage</title>
+</head>
+<body>
+    <h1>Limpando dados de autenticação...</h1>
+    <script>
+        // Limpar localStorage
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('auth-storage');
+        
+        // Limpar sessionStorage
+        sessionStorage.clear();
+        
+        alert('Dados de autenticação limpos! Redirecionando para a página inicial...');
+        window.location.href = 'http://localhost:3000';
+    </script>
+</body>
+</html>

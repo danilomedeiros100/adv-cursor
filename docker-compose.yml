@@ -1,0 +1,213 @@
+version: '3.8'
+
+services:
+  # ==================== BANCOS DE DADOS ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: saas_juridico_postgres
+    environment:
+      POSTGRES_DB: saas_juridico
+      POSTGRES_USER: saas_user
+      POSTGRES_PASSWORD: saas_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - saas_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: saas_juridico_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - saas_network
+
+  mongodb:
+    image: mongo:6
+    container_name: saas_juridico_mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: saas_admin
+      MONGO_INITDB_ROOT_PASSWORD: saas_password
+      MONGO_INITDB_DATABASE: saas_juridico
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - saas_network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: saas_juridico_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - saas_network
+
+  # ==================== MESSAGE BROKER ====================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: saas_juridico_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: saas_user
+      RABBITMQ_DEFAULT_PASS: saas_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - saas_network
+
+  # ==================== BACKEND ====================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: saas_juridico_backend
+    environment:
+      - DATABASE_URL=postgresql://saas_user:saas_password@postgres:5432/saas_juridico
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://saas_admin:saas_password@mongodb:27017/saas_juridico
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - RABBITMQ_URL=amqp://saas_user:saas_password@rabbitmq:5672/
+      - SECRET_KEY=your-secret-key-here
+      - ENVIRONMENT=development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    depends_on:
+      - postgres
+      - redis
+      - mongodb
+      - elasticsearch
+      - rabbitmq
+    networks:
+      - saas_network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ==================== FRONTEND ====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: saas_juridico_frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NODE_ENV=development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - saas_network
+    command: npm run dev
+
+  # ==================== WORKER (CELERY) ====================
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: saas_juridico_worker
+    environment:
+      - DATABASE_URL=postgresql://saas_user:saas_password@postgres:5432/saas_juridico
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://saas_user:saas_password@rabbitmq:5672/
+      - SECRET_KEY=your-secret-key-here
+      - ENVIRONMENT=development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - saas_network
+    command: celery -A core.celery worker --loglevel=info
+
+  # ==================== MONITORAMENTO ====================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: saas_juridico_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - saas_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: saas_juridico_grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - saas_network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: saas_juridico_jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - saas_network
+
+  # ==================== FERRAMENTAS DE DESENVOLVIMENTO ====================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: saas_juridico_mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - saas_network
+
+  adminer:
+    image: adminer:latest
+    container_name: saas_juridico_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - saas_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
+  elasticsearch_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  saas_network:
+    driver: bridge
