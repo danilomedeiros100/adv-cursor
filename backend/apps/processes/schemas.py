@@ -8,7 +8,8 @@ class ProcessCreate(BaseModel):
     court: Optional[str] = None
     jurisdiction: Optional[str] = None
     client_id: str
-    specialty_id: Optional[str] = None
+    specialty_id: Optional[str] = None  # Mantido para compatibilidade
+    specialty_ids: Optional[List[str]] = None  # Novas especialidades
     priority: str = "normal"
     estimated_value: Optional[int] = None  # Em centavos
     notes: Optional[str] = None
@@ -22,7 +23,8 @@ class ProcessUpdate(BaseModel):
     court: Optional[str] = None
     jurisdiction: Optional[str] = None
     client_id: Optional[str] = None
-    specialty_id: Optional[str] = None
+    specialty_id: Optional[str] = None  # Mantido para compatibilidade
+    specialty_ids: Optional[List[str]] = None  # Novas especialidades
     priority: Optional[str] = None
     estimated_value: Optional[int] = None  # Em centavos
     notes: Optional[str] = None
@@ -38,7 +40,7 @@ class ProcessResponse(BaseModel):
     court: Optional[str]
     jurisdiction: Optional[str]
     client_id: str
-    specialty_id: Optional[str]
+    specialty_id: Optional[str]  # Mantido para compatibilidade
     priority: str
     estimated_value: Optional[int]  # Em centavos
     notes: Optional[str]
@@ -51,7 +53,8 @@ class ProcessResponse(BaseModel):
     
     # Relacionamentos
     client: Optional[Dict[str, Any]] = None
-    specialty: Optional[Dict[str, Any]] = None
+    specialty: Optional[Dict[str, Any]] = None  # Mantido para compatibilidade
+    specialties: Optional[List[Dict[str, Any]]] = None  # Novas especialidades
     lawyers: Optional[List[Dict[str, Any]]] = None
 
 class ProcessLawyerCreate(BaseModel):

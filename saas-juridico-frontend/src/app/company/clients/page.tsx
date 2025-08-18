@@ -47,7 +47,7 @@ export default function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // Filtrar clientes
-  const filteredClients = filterClients(searchTerm);
+  const filteredClients = filterClients(searchTerm) || [];
 
   // Deletar cliente
   const handleDeleteClient = async (clientId: string) => {

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from core.database import get_db
 from core.auth.multi_tenant_auth import MultiTenantAuth
+from core.auth.permission_system import require_permission
 from apps.clients.schemas import (
     ClientCreate, ClientUpdate, ClientResponse, 
     ClientListResponse, ClientStats
@@ -18,17 +19,9 @@ auth = MultiTenantAuth()
 async def create_client(
     client_data: ClientCreate,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("clients", "create"))
 ):
     """Cria um novo cliente (isolado por empresa)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("clients.create", False) or permissions.get("clients.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para criar clientes"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = ClientService(db)
     
@@ -46,7 +39,7 @@ async def create_client(
             detail=f"Erro ao criar cliente: {str(e)}"
         )
 
-@router.get("/", response_model=List[ClientResponse])
+@router.get("/", response_model=ClientListResponse)
 async def list_clients(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -56,17 +49,9 @@ async def list_clients(
     is_vip: Optional[bool] = Query(None),
     order_by: str = Query("name", regex="^(name|created_at|person_type)$"),
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("clients", "read"))
 ):
     """Lista clientes da empresa (isolado automaticamente)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("clients.read", False) or permissions.get("clients.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar clientes"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = ClientService(db)
     
@@ -82,7 +67,18 @@ async def list_clients(
             order_by=order_by
         )
         
-        return [client.to_dict() for client in clients]
+        # Calcular metadados
+        total = await service.get_client_count(str(tenant_id), search, person_type, is_active, is_vip)
+        total_pages = (total + limit - 1) // limit
+        current_page = (skip // limit) + 1
+        
+        return ClientListResponse(
+            clients=[client.to_dict() for client in clients],
+            total=total,
+            page=current_page,
+            per_page=limit,
+            total_pages=total_pages
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -93,17 +89,9 @@ async def list_clients(
 async def get_client(
     client_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("clients", "read"))
 ):
     """Obtém cliente específico (isolado por empresa)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("clients.read", False) or permissions.get("clients.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar clientes"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = ClientService(db)
     
@@ -118,17 +106,9 @@ async def update_client(
     client_id: str,
     client_data: ClientUpdate,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("clients", "update"))
 ):
     """Atualiza cliente (isolado por empresa)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("clients.update", False) or permissions.get("clients.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para atualizar clientes"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = ClientService(db)
     
@@ -153,17 +133,9 @@ async def update_client(
 async def delete_client(
     client_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("clients", "delete"))
 ):
     """Remove cliente (soft delete, isolado por empresa)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("clients.delete", False) or permissions.get("clients.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para deletar clientes"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = ClientService(db)
     
@@ -188,17 +160,9 @@ async def delete_client(
 async def activate_client(
     client_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("clients", "update"))
 ):
     """Reativa um cliente"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("clients.update", False) or permissions.get("clients.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para reativar clientes"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = ClientService(db)
     
@@ -213,17 +177,9 @@ async def activate_client(
 @router.get("/stats/summary", response_model=ClientStats)
 async def get_client_stats(
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("clients", "read"))
 ):
     """Retorna estatísticas dos clientes"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("clients.read", False) or permissions.get("clients.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar estatísticas"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = ClientService(db)
     

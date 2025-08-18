@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from core.database import get_db
-from core.auth.multi_tenant_auth import MultiTenantAuth, require_permission
+from core.auth.multi_tenant_auth import MultiTenantAuth
+from core.auth.permission_system import require_permission
 from apps.users.schemas import (
     UserCreate, UserUpdate, UserResponse, UserListResponse, 
     TenantUserCreate, TenantUserUpdate, TenantUserResponse,
@@ -20,16 +21,9 @@ auth = MultiTenantAuth()
 async def create_user(
     user_data: UserCreate,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "create"))
 ):
     """Cria um novo usuário (isolado por empresa)"""
-    # Verifica permissão
-    if not current_user_data["permissions"].get("users.create", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para criar usuários"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -57,17 +51,9 @@ async def list_users(
     is_active: Optional[bool] = Query(None),
     has_oab: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "read"))
 ):
     """Lista usuários da empresa (isolado automaticamente)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.read", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar usuários"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -94,17 +80,9 @@ async def list_users(
 async def get_user(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "read"))
 ):
     """Obtém usuário específico (isolado por empresa)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.read", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar usuários"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -119,17 +97,9 @@ async def update_user(
     user_id: str,
     user_data: UserUpdate,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "update"))
 ):
     """Atualiza usuário (isolado por empresa)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.update", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para atualizar usuários"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -155,17 +125,9 @@ async def update_user_role(
     user_id: str,
     role: UserRole,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "manage"))
 ):
     """Atualiza role do usuário"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para gerenciar usuários"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -185,17 +147,9 @@ async def update_user_role(
 async def delete_user(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "delete"))
 ):
     """Remove usuário (soft delete, isolado por empresa)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.delete", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para deletar usuários"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -209,17 +163,9 @@ async def delete_user(
 async def activate_user(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "update"))
 ):
     """Reativa um usuário"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para gerenciar usuários"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -273,17 +219,9 @@ async def change_password(
 @router.get("/stats/summary")
 async def get_user_stats(
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "read"))
 ):
     """Obtém estatísticas dos usuários"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.read", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar estatísticas"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -299,17 +237,9 @@ async def get_user_stats(
 @router.get("/departments/list")
 async def get_departments(
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "read"))
 ):
     """Obtém lista de departamentos"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.read", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar departamentos"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -329,17 +259,9 @@ async def add_user_specialty(
     user_id: str,
     specialty_data: dict,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "update"))
 ):
     """Adiciona especialidade a um usuário"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.update", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para gerenciar especialidades"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -370,17 +292,9 @@ async def add_user_specialty(
 async def get_user_specialties(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "read"))
 ):
     """Lista especialidades de um usuário"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.read", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar especialidades"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     
@@ -398,17 +312,9 @@ async def remove_user_specialty(
     user_id: str,
     specialty_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("users", "update"))
 ):
     """Remove especialidade de um usuário"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("users.update", False) or permissions.get("users.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para gerenciar especialidades"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = UserService(db)
     

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from core.database import get_db
 from core.auth.multi_tenant_auth import MultiTenantAuth
+from core.auth.permission_system import require_permission
 from apps.specialties.schemas import (
     SpecialtyCreate, SpecialtyUpdate, SpecialtyResponse, 
     SpecialtyListResponse, SpecialtyStats
@@ -18,17 +19,9 @@ auth = MultiTenantAuth()
 async def create_specialty(
     specialty_data: SpecialtyCreate,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("specialties", "create"))
 ):
     """Cria uma nova especialidade para a empresa"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("specialties.manage", False) or permissions.get("admin", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para criar especialidades"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = SpecialtyService(db)
     
@@ -55,17 +48,9 @@ async def list_specialties(
     requires_oab: Optional[bool] = Query(None),
     order_by: str = Query("display_order", regex="^(display_order|name|created_at)$"),
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("specialties", "read"))
 ):
     """Lista especialidades da empresa (isolado automaticamente)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("specialties.read", False) or permissions.get("specialties.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar especialidades"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = SpecialtyService(db)
     
@@ -91,17 +76,9 @@ async def list_specialties(
 async def get_specialty(
     specialty_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("specialties", "read"))
 ):
     """Obtém uma especialidade específica"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("specialties.read", False) or permissions.get("specialties.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para visualizar especialidades"
-        )
-    
     tenant_id = current_user_data["tenant"].id
     service = SpecialtyService(db)
     
@@ -116,17 +93,9 @@ async def update_specialty(
     specialty_id: str,
     specialty_data: SpecialtyUpdate,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("specialties", "update"))
 ):
     """Atualiza uma especialidade"""
-    # Verifica permissão - TEMPORARIAMENTE DESABILITADO
-    # permissions = current_user_data["permissions"]
-    # if not (permissions.get("specialties.update", False) or permissions.get("specialties.manage", False)):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Sem permissão para atualizar especialidades"
-    #     )
-    
     tenant_id = current_user_data["tenant"].id
     service = SpecialtyService(db)
     
@@ -151,17 +120,9 @@ async def update_specialty(
 async def delete_specialty(
     specialty_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("specialties", "delete"))
 ):
     """Remove uma especialidade (soft delete)"""
-    # Verifica permissão - TEMPORARIAMENTE DESABILITADO
-    # permissions = current_user_data["permissions"]
-    # if not (permissions.get("specialties.delete", False) or permissions.get("specialties.manage", False)):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Sem permissão para deletar especialidades"
-    #     )
-    
     tenant_id = current_user_data["tenant"].id
     service = SpecialtyService(db)
     
@@ -186,17 +147,9 @@ async def delete_specialty(
 async def activate_specialty(
     specialty_id: str,
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("specialties", "update"))
 ):
     """Reativa uma especialidade"""
-    # Verifica permissão - TEMPORARIAMENTE DESABILITADO
-    # permissions = current_user_data["permissions"]
-    # if not (permissions.get("specialties.update", False) or permissions.get("specialties.manage", False)):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Sem permissão para reativar especialidades"
-    #     )
-    
     tenant_id = current_user_data["tenant"].id
     service = SpecialtyService(db)
     
@@ -209,17 +162,9 @@ async def activate_specialty(
 @router.get("/stats/summary", response_model=SpecialtyStats)
 async def get_specialty_stats(
     db: Session = Depends(get_db),
-    current_user_data: dict = Depends(auth.get_current_user_with_tenant)
+    current_user_data: dict = Depends(require_permission("specialties", "read"))
 ):
     """Retorna estatísticas das especialidades"""
-    # Verifica permissão - TEMPORARIAMENTE DESABILITADO
-    # permissions = current_user_data["permissions"]
-    # if not (permissions.get("specialties.read", False) or permissions.get("specialties.manage", False)):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Sem permissão para visualizar estatísticas"
-    #     )
-    
     tenant_id = current_user_data["tenant"].id
     service = SpecialtyService(db)
     

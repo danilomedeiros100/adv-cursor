@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from core.models.process import Process, ProcessLawyer
+from core.models.process import Process, ProcessLawyer, ProcessSpecialty
 from core.models.client import Client
 from core.models.specialty import Specialty
 from core.models.user import User
@@ -37,6 +37,18 @@ class ProcessService:
         
         self.db.add(process)
         self.db.flush()  # Para obter o ID do processo
+        
+        # Adiciona as especialidades ao processo
+        specialty_ids = process_data.get("specialty_ids", [])
+        if specialty_ids:
+            for specialty_id in specialty_ids:
+                process_specialty = ProcessSpecialty(
+                    id=uuid.uuid4(),
+                    process_id=process.id,
+                    specialty_id=specialty_id,
+                    created_by=created_by
+                )
+                self.db.add(process_specialty)
         
         # Adiciona os advogados ao processo
         for lawyer_data in lawyers_data:
@@ -234,7 +246,7 @@ class ProcessService:
             "email": client.email
         } if client else None
         
-        # Busca a especialidade
+        # Busca a especialidade (mantido para compatibilidade)
         specialty = None
         if process.specialty_id:
             specialty = self.db.query(Specialty).filter(Specialty.id == process.specialty_id).first()
@@ -243,6 +255,19 @@ class ProcessService:
             "name": specialty.name,
             "description": specialty.description
         } if specialty else None
+        
+        # Busca as especialidades (novo relacionamento)
+        process_specialties = self.db.query(ProcessSpecialty).filter(ProcessSpecialty.process_id == process.id).all()
+        specialties_data = []
+        for process_specialty in process_specialties:
+            specialty_obj = self.db.query(Specialty).filter(Specialty.id == process_specialty.specialty_id).first()
+            if specialty_obj:
+                specialties_data.append({
+                    "id": str(specialty_obj.id),
+                    "name": specialty_obj.name,
+                    "description": specialty_obj.description,
+                    "code": specialty_obj.code
+                })
         
         # Busca os advogados
         lawyers = self.db.query(ProcessLawyer).filter(ProcessLawyer.process_id == process.id).all()
@@ -288,5 +313,6 @@ class ProcessService:
             created_by=str(process.created_by) if process.created_by else None,
             client=client_data,
             specialty=specialty_data,
+            specialties=specialties_data,
             lawyers=lawyers_data
         )

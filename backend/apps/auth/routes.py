@@ -16,7 +16,8 @@ from pydantic import BaseModel
 router = APIRouter(tags=["autenticação"])
 
 # Configurações de segurança
-SECRET_KEY = "your-secret-key-here-change-in-production"
+from core.config import settings
+SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

@@ -187,6 +187,33 @@ class ClientService:
         self.db.commit()
         return True
     
+    async def get_client_count(self, tenant_id: str, search: str = None, person_type: str = None, 
+                              is_active: bool = None, is_vip: bool = None) -> int:
+        """Retorna o total de clientes com filtros aplicados"""
+        query = self.db.query(Client).filter(Client.tenant_id == tenant_id)
+        
+        # Aplicar filtros
+        if search:
+            query = query.filter(
+                or_(
+                    Client.name.ilike(f"%{search}%"),
+                    Client.email.ilike(f"%{search}%"),
+                    Client.cpf_cnpj.ilike(f"%{search}%"),
+                    Client.company_name.ilike(f"%{search}%")
+                )
+            )
+        
+        if person_type:
+            query = query.filter(Client.person_type == person_type)
+        
+        if is_active is not None:
+            query = query.filter(Client.is_active == is_active)
+        
+        if is_vip is not None:
+            query = query.filter(Client.is_vip == is_vip)
+        
+        return query.count()
+
     async def get_client_stats(self, tenant_id: str) -> dict:
         """Retorna estatísticas dos clientes"""
         total = self.db.query(Client).filter(Client.tenant_id == tenant_id).count()

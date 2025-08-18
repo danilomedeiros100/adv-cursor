@@ -14,10 +14,10 @@ from apps.superadmin.dashboard.routes import router as superadmin_dashboard_rout
 
 # Rotas Empresas
 from apps.company.dashboard.routes import router as company_dashboard_router
-from apps.clients.routes import router as clients_router
-from apps.processes.routes import router as processes_router
-from apps.users.routes import router as users_router
-from apps.specialties.routes import router as specialties_router
+from apps.clients import router as clients_router
+from apps.processes import router as processes_router
+from apps.users import router as users_router
+from apps.specialties import router as specialties_router
 # from apps.documents.routes import router as documents_router
 # from apps.financial.routes import router as financial_router
 # from apps.notifications.routes import router as notifications_router

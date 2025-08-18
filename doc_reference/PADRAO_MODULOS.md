@@ -322,13 +322,7 @@ async def create_{module_name}(
     current_user_data: dict = Depends(auth.get_current_user_with_tenant)
 ):
     """Cria um novo {module_name} (isolado por empresa)"""
-    # Verifica permissão
-    permissions = current_user_data["permissions"]
-    if not (permissions.get("{module_name}s.create", False) or permissions.get("{module_name}s.manage", False)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Sem permissão para criar {module_name}s"
-        )
+    # Permissão verificada automaticamente pelo decorator require_permission
     
     tenant_id = current_user_data["tenant"].id
     service = {ModuleName}Service(db)

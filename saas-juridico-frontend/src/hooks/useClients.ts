@@ -36,7 +36,12 @@ export function useClients() {
       }
 
       const data = await response.json();
-      setClients(data || []);
+      // Verificar se é ClientListResponse ou array direto
+      if (data && typeof data === 'object' && 'clients' in data) {
+        setClients(data.clients || []);
+      } else {
+        setClients(data || []);
+      }
     } catch (error) {
       console.error(`Erro ao buscar clientes:`, error);
       setError(`Erro ao carregar clientes`);
@@ -257,6 +262,12 @@ export function useClients() {
 
   // Filtrar clientes
   const filterClients = (searchTerm: string) => {
+    // Garantir que clients seja sempre um array
+    if (!Array.isArray(clients)) {
+      console.warn('clients não é um array:', clients);
+      return [];
+    }
+    
     return clients.filter(client =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
