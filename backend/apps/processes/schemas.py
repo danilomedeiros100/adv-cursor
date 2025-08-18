@@ -3,48 +3,61 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class ProcessCreate(BaseModel):
-    title: str
-    description: Optional[str] = None
-    process_number: Optional[str] = None
+    subject: str
+    cnj_number: Optional[str] = None
     court: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    client_id: str
     specialty_id: Optional[str] = None
-    client_id: Optional[str] = None
-    status: str = "pending"
     priority: str = "normal"
-    estimated_value: Optional[float] = None
-    start_date: Optional[datetime] = None
-    expected_end_date: Optional[datetime] = None
+    estimated_value: Optional[int] = None  # Em centavos
+    notes: Optional[str] = None
+    is_confidential: bool = False
+    requires_attention: bool = False
+    lawyers: List[Dict[str, Any]] = []
 
 class ProcessUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    process_number: Optional[str] = None
+    subject: Optional[str] = None
+    cnj_number: Optional[str] = None
     court: Optional[str] = None
-    specialty_id: Optional[str] = None
+    jurisdiction: Optional[str] = None
     client_id: Optional[str] = None
-    status: Optional[str] = None
+    specialty_id: Optional[str] = None
     priority: Optional[str] = None
-    estimated_value: Optional[float] = None
-    start_date: Optional[datetime] = None
-    expected_end_date: Optional[datetime] = None
+    estimated_value: Optional[int] = None  # Em centavos
+    notes: Optional[str] = None
+    is_confidential: Optional[bool] = None
+    requires_attention: Optional[bool] = None
+    status: Optional[str] = None
 
 class ProcessResponse(BaseModel):
     id: str
     tenant_id: str
-    title: str
-    description: Optional[str]
-    process_number: Optional[str]
+    subject: str
+    cnj_number: Optional[str]
     court: Optional[str]
+    jurisdiction: Optional[str]
+    client_id: str
     specialty_id: Optional[str]
-    client_id: Optional[str]
-    status: str
     priority: str
-    estimated_value: Optional[float]
-    start_date: Optional[datetime]
-    expected_end_date: Optional[datetime]
+    estimated_value: Optional[int]  # Em centavos
+    notes: Optional[str]
+    is_confidential: bool
+    requires_attention: bool
+    status: str
     created_at: datetime
     updated_at: Optional[datetime]
+    created_by: Optional[str]
+    
+    # Relacionamentos
+    client: Optional[Dict[str, Any]] = None
+    specialty: Optional[Dict[str, Any]] = None
+    lawyers: Optional[List[Dict[str, Any]]] = None
 
 class ProcessLawyerCreate(BaseModel):
     lawyer_id: str
-    role: str = "primary"  # primary, secondary, assistant
+    role: str = "lawyer"  # lawyer, assistant, coordinator
+    is_primary: bool = False
+    can_sign_documents: bool = True
+    can_manage_process: bool = True
+    can_view_financial: bool = False

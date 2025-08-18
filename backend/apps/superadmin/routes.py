@@ -13,7 +13,7 @@ from apps.superadmin.schemas import (
 from apps.superadmin.services import SuperAdminService
 import uuid
 
-router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
+router = APIRouter(tags=["Super Admin"])
 
 # ==================== GESTÃO DE EMPRESAS (TENANTS) ====================
 

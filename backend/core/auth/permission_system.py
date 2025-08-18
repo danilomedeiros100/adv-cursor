@@ -24,8 +24,8 @@ class PermissionSystem:
         if not tenant_user:
             return {}
         
-        # Busca role base
-        role = self.db.query(Role).filter(Role.id == tenant_user.role).first()
+        # Busca role base pelo nome
+        role = self.db.query(Role).filter(Role.name == tenant_user.role).first()
         if not role:
             return {}
         
