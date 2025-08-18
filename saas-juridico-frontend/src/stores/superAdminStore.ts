@@ -26,7 +26,7 @@ interface SuperAdminAuthStore extends SuperAdminAuthState {
   clearError: () => void;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 export const useSuperAdminStore = create<SuperAdminAuthStore>()(
   persist(

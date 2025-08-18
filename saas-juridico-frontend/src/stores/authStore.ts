@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { fetchWithAuth } from '@/lib/api';
 
 interface User {
   id: string;
@@ -42,7 +43,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -56,11 +57,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetchWithAuth('/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(credentials),
       });
 
@@ -141,11 +139,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Verifica se o token é válido
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await fetchWithAuth('/auth/me');
 
       if (!response.ok) {
         // Token inválido, limpa o estado
@@ -173,7 +167,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isInitialized: true,
       });
     } catch (error) {
-      console.error('Erro ao verificar status da autenticação:', error);
       set({
         user: null,
         tenant: null,

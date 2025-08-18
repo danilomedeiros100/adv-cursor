@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
+import { CNJStatsCard } from '@/components/CNJStatsCard';
 import {
   Users,
   FolderOpen,
@@ -99,6 +100,11 @@ export default function CompanyDashboardPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* CNJ Integration Stats */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CNJStatsCard />
         </div>
 
         {/* Main Content Grid */}

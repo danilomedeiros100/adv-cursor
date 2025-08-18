@@ -34,17 +34,28 @@ import {
   Trash2, 
   Eye,
   Scale,
-  AlertTriangle
+  AlertTriangle,
+  Download,
+  RefreshCw,
+  Clock
 } from "lucide-react";
 import { useProcesses, type Process } from "@/hooks/useProcesses";
+import { useCNJIntegration } from "@/hooks/useCNJIntegration";
 import { Loading } from "@/components/ui/loading";
+import { SearchableSelect } from "@/components/SearchableSelect";
+
+import { ProcessDetailsModal } from "@/components/ProcessDetailsModal";
+import { toast } from "sonner";
 
 export default function ProcessesPage() {
   const { processes, loading, createProcess, updateProcess, deleteProcess, filterProcesses } = useProcesses();
+  const { sincronizarProcesso } = useCNJIntegration();
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
+
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   // Filtrar processos
   const filteredProcesses = filterProcesses(searchTerm) || [];
@@ -55,6 +66,11 @@ export default function ProcessesPage() {
       return;
     }
     await deleteProcess(processId);
+  };
+
+  // Sincronizar processo com CNJ
+  const handleSyncProcess = async (processId: string) => {
+    await sincronizarProcesso(processId);
   };
 
   const formatDate = (dateString: string) => {
@@ -253,7 +269,7 @@ export default function ProcessesPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => {
                           setSelectedProcess(process);
-                          setIsEditDialogOpen(true);
+                          setIsDetailsOpen(true);
                         }}>
                           <Eye className="w-4 h-4 mr-2" />
                           Visualizar
@@ -265,6 +281,14 @@ export default function ProcessesPage() {
                           <Edit className="w-4 h-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
+                        {process.cnj_number && (
+                          <DropdownMenuItem 
+                            onClick={() => handleSyncProcess(process.id)}
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Sincronizar com CNJ
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem 
                           onClick={() => handleDeleteProcess(process.id)}
                           className="text-destructive"
@@ -306,6 +330,18 @@ export default function ProcessesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+
+
+      {/* Modal de Detalhes do Processo */}
+      <ProcessDetailsModal
+        process={selectedProcess}
+        isOpen={isDetailsOpen}
+        onClose={() => {
+          setIsDetailsOpen(false);
+          setSelectedProcess(null);
+        }}
+      />
     </div>
   );
 }
@@ -318,7 +354,6 @@ function CreateProcessForm({ onSuccess, createProcess }: { onSuccess: () => void
     court: "",
     jurisdiction: "",
     client_id: "",
-    client_search: "",
     specialty_ids: [] as string[],
     priority: "normal" as "low" | "normal" | "high" | "urgent",
     estimated_value: "",
@@ -328,28 +363,67 @@ function CreateProcessForm({ onSuccess, createProcess }: { onSuccess: () => void
     lawyers: [] as any[]
   });
   const [loading, setLoading] = useState(false);
-  const [clients, setClients] = useState<any[]>([]);
-  const [specialties, setSpecialties] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [showClientResults, setShowClientResults] = useState(false);
-  const [showSpecialtyResults, setShowSpecialtyResults] = useState(false);
-  const [showLawyerResults, setShowLawyerResults] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [importingCNJ, setImportingCNJ] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<any[]>([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<any[]>([]);
   const [selectedLawyers, setSelectedLawyers] = useState<any[]>([]);
+  
+  const { consultarProcesso } = useCNJIntegration();
 
-  // Buscar clientes
-  const searchClients = async (searchTerm: string) => {
-    if (!searchTerm || searchTerm.length < 2) {
-      setClients([]);
-      setShowClientResults(false);
+  // Função para importar dados do CNJ
+  const importarDadosCNJ = async () => {
+    if (!formData.cnj_number.trim()) {
+      toast.error("Digite um número CNJ válido");
       return;
     }
 
+    setImportingCNJ(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/company/clients?search=${searchTerm}&limit=10`, {
+      const dadosCNJ = await consultarProcesso(formData.cnj_number);
+      
+      if (dadosCNJ) {
+        // Função utilitária para extrair valor
+        const extractValue = (field: any): string => {
+          if (typeof field === 'string') return field;
+          if (typeof field === 'object' && field?.nome) return field.nome;
+          if (typeof field === 'object' && field?.codigo) return field.codigo;
+          return "";
+        };
+
+        // Atualizar formulário com dados do CNJ
+        setFormData(prev => ({
+          ...prev,
+          subject: extractValue(dadosCNJ.assunto) || prev.subject,
+          court: extractValue(dadosCNJ.tribunal) || prev.court,
+          jurisdiction: extractValue(dadosCNJ.orgao_julgador) || prev.jurisdiction,
+          estimated_value: dadosCNJ.valor_causa ? 
+            (parseFloat(dadosCNJ.valor_causa.replace(/[^\d,.-]/g, '').replace(',', '.')) * 100).toString() : 
+            prev.estimated_value,
+          notes: `Importado do CNJ em ${new Date().toLocaleString('pt-BR')}. ${prev.notes}`
+        }));
+
+        toast.success("Dados importados com sucesso do CNJ!");
+      }
+    } catch (error) {
+      console.error("Erro ao importar dados CNJ:", error);
+      toast.error("Erro ao importar dados do CNJ");
+    } finally {
+      setImportingCNJ(false);
+    }
+  };
+
+  // Buscar clientes
+  const searchClients = async (searchTerm: string) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.error("Token não encontrado");
+        return [];
+      }
+      
+      const response = await fetch(`/api/v1/company/clients?search=${searchTerm}&limit=10`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem('token')}`,
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -357,26 +431,31 @@ function CreateProcessForm({ onSuccess, createProcess }: { onSuccess: () => void
       if (response.ok) {
         const data = await response.json();
         const clientList = data.clients || data || [];
-        setClients(clientList);
-        setShowClientResults(true);
+        return clientList.map((client: any) => ({
+          id: client.id,
+          label: client.name,
+          sublabel: client.cpf_cnpj ? `Doc: ${client.cpf_cnpj}` : '',
+          description: client.email || ''
+        }));
       }
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
     }
+    return [];
   };
 
   // Buscar especialidades
   const searchSpecialties = async (searchTerm: string) => {
-    if (!searchTerm || searchTerm.length < 2) {
-      setSpecialties([]);
-      setShowSpecialtyResults(false);
-      return;
-    }
-
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/company/specialties?search=${searchTerm}&limit=10`, {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.error("Token não encontrado");
+        return [];
+      }
+      
+      const response = await fetch(`/api/v1/company/specialties?search=${searchTerm}&limit=10`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem('token')}`,
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -384,89 +463,121 @@ function CreateProcessForm({ onSuccess, createProcess }: { onSuccess: () => void
       if (response.ok) {
         const data = await response.json();
         const specialtyList = data.specialties || data || [];
-        setSpecialties(specialtyList);
-        setShowSpecialtyResults(true);
+        return specialtyList.map((specialty: any) => ({
+          id: specialty.id,
+          label: specialty.name,
+          sublabel: specialty.code,
+          description: specialty.description || ''
+        }));
       }
     } catch (error) {
       console.error("Erro ao buscar especialidades:", error);
     }
+    return [];
   };
 
   // Buscar usuários (advogados)
   const searchUsers = async (searchTerm: string) => {
-    if (!searchTerm || searchTerm.length < 2) {
-      setUsers([]);
-      setShowLawyerResults(false);
-      return;
-    }
-
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/company/users?search=${searchTerm}&limit=10`, {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.error("Token não encontrado");
+        return [];
+      }
+      
+      const response = await fetch(`/api/v1/company/users?search=${searchTerm}&limit=10`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem('token')}`,
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
 
       if (response.ok) {
         const data = await response.json();
+        // Verificar se é UserListResponse ou array direto
         const userList = data.users || data || [];
-        setUsers(userList);
-        setShowLawyerResults(true);
+        return userList.map((user: any) => ({
+          id: user.id,
+          label: user.name,
+          sublabel: user.email,
+          description: user.role || ''
+        }));
       }
     } catch (error) {
       console.error("Erro ao buscar usuários:", error);
     }
+    return [];
   };
 
-  // Selecionar cliente
-  const selectClient = (client: any) => {
-    setSelectedClient(client);
-    setFormData({ ...formData, client_id: client.id, client_search: client.name });
-    setShowClientResults(false);
-  };
-
-  // Selecionar especialidade
-  const selectSpecialty = (specialty: any) => {
-    if (!selectedSpecialties.find(s => s.id === specialty.id)) {
-      setSelectedSpecialties([...selectedSpecialties, specialty]);
-      setFormData({ ...formData, specialty_ids: [...formData.specialty_ids, specialty.id] });
+  // Manipular seleção de cliente
+  const handleClientSelect = (option: any) => {
+    if (selectedClient.length > 0) {
+      // Remover seleção
+      setSelectedClient([]);
+      setFormData({ ...formData, client_id: "" });
+    } else {
+      // Adicionar seleção
+      setSelectedClient([option]);
+      setFormData({ ...formData, client_id: option.id });
     }
-    setShowSpecialtyResults(false);
   };
 
-  // Remover especialidade
-  const removeSpecialty = (specialtyId: string) => {
-    setSelectedSpecialties(selectedSpecialties.filter(s => s.id !== specialtyId));
-    setFormData({ ...formData, specialty_ids: formData.specialty_ids.filter(id => id !== specialtyId) });
-  };
-
-  // Selecionar advogado
-  const selectLawyer = (user: any) => {
-    if (!selectedLawyers.find(l => l.id === user.id)) {
-      setSelectedLawyers([...selectedLawyers, user]);
+  // Manipular seleção de especialidade
+  const handleSpecialtySelect = (option: any) => {
+    const isSelected = selectedSpecialties.find(s => s.id === option.id);
+    if (isSelected) {
+      // Remover especialidade
+      const newSpecialties = selectedSpecialties.filter(s => s.id !== option.id);
+      setSelectedSpecialties(newSpecialties);
       setFormData({ 
         ...formData, 
-        lawyers: [...formData.lawyers, {
-          lawyer_id: user.id,
+        specialty_ids: newSpecialties.map(s => s.id)
+      });
+    } else {
+      // Adicionar especialidade
+      const newSpecialties = [...selectedSpecialties, option];
+      setSelectedSpecialties(newSpecialties);
+      setFormData({ 
+        ...formData, 
+        specialty_ids: newSpecialties.map(s => s.id)
+      });
+    }
+  };
+
+  // Manipular seleção de advogado
+  const handleLawyerSelect = (option: any) => {
+    const isSelected = selectedLawyers.find(l => l.id === option.id);
+    if (isSelected) {
+      // Remover advogado
+      const newLawyers = selectedLawyers.filter(l => l.id !== option.id);
+      setSelectedLawyers(newLawyers);
+      setFormData({ 
+        ...formData, 
+        lawyers: newLawyers.map((lawyer, index) => ({
+          lawyer_id: lawyer.id,
           role: "lawyer",
-          is_primary: selectedLawyers.length === 0, // Primeiro advogado é principal
+          is_primary: index === 0, // Primeiro advogado é sempre principal
           can_sign_documents: true,
           can_manage_process: true,
           can_view_financial: false
-        }]
+        }))
+      });
+    } else {
+      // Adicionar advogado
+      const newLawyers = [...selectedLawyers, option];
+      setSelectedLawyers(newLawyers);
+      setFormData({ 
+        ...formData, 
+        lawyers: newLawyers.map((lawyer, index) => ({
+          lawyer_id: lawyer.id,
+          role: "lawyer",
+          is_primary: index === 0, // Primeiro advogado é sempre principal
+          can_sign_documents: true,
+          can_manage_process: true,
+          can_view_financial: false
+        }))
       });
     }
-    setShowLawyerResults(false);
-  };
-
-  // Remover advogado
-  const removeLawyer = (lawyerId: string) => {
-    setSelectedLawyers(selectedLawyers.filter(l => l.id !== lawyerId));
-    setFormData({ 
-      ...formData, 
-      lawyers: formData.lawyers.filter(l => l.lawyer_id !== lawyerId)
-    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -475,7 +586,7 @@ function CreateProcessForm({ onSuccess, createProcess }: { onSuccess: () => void
 
     try {
       // Validar se tem cliente e pelo menos um advogado
-      if (!selectedClient) {
+      if (selectedClient.length === 0) {
         alert("Selecione um cliente");
         return;
       }
@@ -522,10 +633,35 @@ function CreateProcessForm({ onSuccess, createProcess }: { onSuccess: () => void
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium">Número CNJ</label>
-          <Input
-            value={formData.cnj_number}
-            onChange={(e) => setFormData({ ...formData, cnj_number: e.target.value })}
-          />
+          <div className="flex gap-2">
+            <Input
+              value={formData.cnj_number}
+              onChange={(e) => setFormData({ ...formData, cnj_number: e.target.value })}
+              placeholder="0000000-00.0000.0.00.0000"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={importarDadosCNJ}
+              disabled={importingCNJ || !formData.cnj_number.trim()}
+              className="whitespace-nowrap"
+            >
+              {importingCNJ ? (
+                <>
+                  <Clock className="w-4 h-4 animate-spin mr-2" />
+                  Importando...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Importar CNJ
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Digite o número CNJ e clique em "Importar CNJ" para preencher automaticamente
+          </p>
         </div>
         <div>
           <label className="text-sm font-medium">Tribunal</label>
@@ -545,139 +681,37 @@ function CreateProcessForm({ onSuccess, createProcess }: { onSuccess: () => void
       </div>
 
       {/* Seleção de Cliente */}
-      <div className="relative">
-        <label className="text-sm font-medium">Cliente *</label>
-        <Input
-          placeholder="Buscar por nome ou documento..."
-          value={formData.client_search}
-          onChange={(e) => {
-            setFormData({ ...formData, client_search: e.target.value });
-            searchClients(e.target.value);
-          }}
-          onFocus={() => {
-            if (formData.client_search.length >= 2) {
-              setShowClientResults(true);
-            }
-          }}
-        />
-        {showClientResults && clients.length > 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-            {clients.map((client) => (
-              <div
-                key={client.id}
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                onClick={() => selectClient(client)}
-              >
-                <div className="font-medium">{client.name}</div>
-                <div className="text-sm text-gray-600">
-                  {client.cpf_cnpj ? `Doc: ${client.cpf_cnpj}` : ''}
-                  {client.email ? ` | ${client.email}` : ''}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {selectedClient && (
-          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
-            <div className="text-sm font-medium text-green-800">Cliente selecionado: {selectedClient.name}</div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedClient(null);
-                setFormData({ ...formData, client_id: "", client_search: "" });
-              }}
-              className="text-xs text-green-600 hover:text-green-800"
-            >
-              Remover
-            </button>
-          </div>
-        )}
-      </div>
+      <SearchableSelect
+        label="Cliente"
+        placeholder="Buscar por nome ou documento..."
+        searchFunction={searchClients}
+        onSelect={handleClientSelect}
+        selectedOptions={selectedClient}
+        multiple={false}
+        required={true}
+      />
 
       {/* Seleção de Especialidades */}
-      <div className="relative">
-        <label className="text-sm font-medium">Especialidades</label>
-        <Input
-          placeholder="Buscar especialidades..."
-          onChange={(e) => searchSpecialties(e.target.value)}
-          onFocus={() => setShowSpecialtyResults(true)}
-        />
-        {showSpecialtyResults && specialties.length > 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-            {specialties.map((specialty) => (
-              <div
-                key={specialty.id}
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                onClick={() => selectSpecialty(specialty)}
-              >
-                <div className="font-medium">{specialty.name}</div>
-                <div className="text-sm text-gray-600">{specialty.description}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {selectedSpecialties.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {selectedSpecialties.map((specialty) => (
-              <div key={specialty.id} className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded-md">
-                <span className="text-sm font-medium text-blue-800">{specialty.name}</span>
-                <button
-                  type="button"
-                  onClick={() => removeSpecialty(specialty.id)}
-                  className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                  Remover
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <SearchableSelect
+        label="Especialidades"
+        placeholder="Buscar especialidades..."
+        searchFunction={searchSpecialties}
+        onSelect={handleSpecialtySelect}
+        selectedOptions={selectedSpecialties}
+        multiple={true}
+        required={false}
+      />
 
       {/* Seleção de Advogados */}
-      <div className="relative">
-        <label className="text-sm font-medium">Advogados *</label>
-        <Input
-          placeholder="Buscar advogados..."
-          onChange={(e) => searchUsers(e.target.value)}
-          onFocus={() => setShowLawyerResults(true)}
-        />
-        {showLawyerResults && users.length > 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-            {users.map((user) => (
-              <div
-                key={user.id}
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                onClick={() => selectLawyer(user)}
-              >
-                <div className="font-medium">{user.name}</div>
-                <div className="text-sm text-gray-600">{user.email}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {selectedLawyers.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {selectedLawyers.map((lawyer, index) => (
-              <div key={lawyer.id} className="flex items-center justify-between p-2 bg-purple-50 border border-purple-200 rounded-md">
-                <div>
-                  <span className="text-sm font-medium text-purple-800">{lawyer.name}</span>
-                  {index === 0 && (
-                    <span className="ml-2 text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded">Principal</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeLawyer(lawyer.id)}
-                  className="text-xs text-purple-600 hover:text-purple-800"
-                >
-                  Remover
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <SearchableSelect
+        label="Advogados"
+        placeholder="Buscar advogados..."
+        searchFunction={searchUsers}
+        onSelect={handleLawyerSelect}
+        selectedOptions={selectedLawyers}
+        multiple={true}
+        required={true}
+      />
 
       <div>
         <label className="text-sm font-medium">Valor Estimado (centavos)</label>

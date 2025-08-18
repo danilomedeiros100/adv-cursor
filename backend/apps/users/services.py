@@ -443,3 +443,47 @@ class UserService:
         self.db.delete(user_specialty)
         self.db.commit()
         return True
+    
+    async def get_user_count(
+        self, 
+        tenant_id: str, 
+        search: Optional[str] = None,
+        role: Optional[str] = None,
+        department: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        has_oab: Optional[bool] = None
+    ) -> int:
+        """Conta usuários do tenant com filtros"""
+        query = self.db.query(User).join(TenantUser).filter(
+            and_(
+                TenantUser.tenant_id == tenant_id,
+                TenantUser.is_active == True
+            )
+        )
+        
+        # Aplicar filtros
+        if search:
+            search_filter = or_(
+                User.name.ilike(f"%{search}%"),
+                User.email.ilike(f"%{search}%"),
+                User.cpf.ilike(f"%{search}%"),
+                User.oab_number.ilike(f"%{search}%")
+            )
+            query = query.filter(search_filter)
+        
+        if role:
+            query = query.filter(TenantUser.role == role)
+        
+        if department:
+            query = query.filter(User.department == department)
+        
+        if is_active is not None:
+            query = query.filter(User.is_active == is_active)
+        
+        if has_oab is not None:
+            if has_oab:
+                query = query.filter(User.oab_number.isnot(None))
+            else:
+                query = query.filter(User.oab_number.is_(None))
+        
+        return query.count()

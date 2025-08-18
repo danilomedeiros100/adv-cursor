@@ -47,14 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Se não está autenticado e não está em uma rota pública, redireciona para login
     if (!isAuthenticated && !isPublicRoute) {
-      console.log('Usuário não autenticado, redirecionando para login');
       router.push('/auth/login');
       return;
     }
 
     // Se está autenticado e está na página de login, redireciona para o dashboard correto
     if (isAuthenticated && pathname === '/auth/login') {
-      console.log('Usuário autenticado, redirecionando para dashboard');
       if (user?.is_super_admin) {
         router.push('/superadmin/dashboard');
       } else {
@@ -62,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return;
     }
-  }, [isAuthenticated, isPublicRoute, pathname, isInitialized, router]);
+  }, [isAuthenticated, isPublicRoute, pathname, isInitialized, router, user]);
 
   // Mostra loading enquanto inicializa
   if (!isInitialized || isLoading) {

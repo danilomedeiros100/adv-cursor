@@ -14,6 +14,9 @@ engine = create_engine(
     echo=True,  # Log das queries SQL (remover em produção)
     pool_pre_ping=True,
     pool_recycle=300,
+    pool_size=20,  # Aumentar pool size
+    max_overflow=30,  # Aumentar overflow
+    pool_timeout=60,  # Aumentar timeout
 )
 
 # Criar sessão

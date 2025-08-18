@@ -41,7 +41,7 @@ async def create_user(
             detail=f"Erro ao criar usuário: {str(e)}"
         )
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/", response_model=UserListResponse)
 async def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -69,7 +69,18 @@ async def list_users(
             has_oab=has_oab
         )
         
-        return [user.to_dict() for user in users]
+        # Calcular metadados
+        total = await service.get_user_count(str(tenant_id), search, role, department, is_active, has_oab)
+        total_pages = (total + limit - 1) // limit
+        current_page = (skip // limit) + 1
+        
+        return UserListResponse(
+            users=[user.to_dict() for user in users],
+            total=total,
+            page=current_page,
+            per_page=limit,
+            total_pages=total_pages
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

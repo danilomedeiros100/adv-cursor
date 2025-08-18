@@ -88,12 +88,15 @@ export default function UsersPage() {
       
       if (response.ok) {
         const data = await response.json();
-        setUsers(data);
+        // Verificar se data.users existe, senão usar data diretamente
+        setUsers(data.users || data || []);
       } else {
         console.error('Erro ao carregar usuários');
+        setUsers([]);
       }
     } catch (error) {
       console.error('Erro na requisição:', error);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -159,7 +162,7 @@ export default function UsersPage() {
         const createdUser = await response.json();
         
         // Adicionar o novo usuário à lista local
-        setUsers(prevUsers => [...prevUsers, createdUser]);
+        setUsers(prevUsers => [...(prevUsers || []), createdUser]);
         
         setShowCreateDialog(false);
         setNewUser({
@@ -243,7 +246,7 @@ export default function UsersPage() {
         
         // Atualizar o usuário na lista local
         setUsers(prevUsers => 
-          prevUsers.map(user => 
+          (prevUsers || []).map(user => 
             user.id === updatedUser.id ? updatedUser : user
           )
         );
@@ -282,7 +285,7 @@ export default function UsersPage() {
       if (response.ok) {
         // Remover o usuário da lista local
         setUsers(prevUsers => 
-          prevUsers.filter(user => user.id !== selectedUser.id)
+          (prevUsers || []).filter(user => user.id !== selectedUser.id)
         );
         
         setShowDeleteDialog(false);
@@ -301,7 +304,7 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = (users || []).filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (user.oab_number && user.oab_number.includes(searchTerm));

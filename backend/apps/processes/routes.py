@@ -255,3 +255,7 @@ async def get_process_deadlines(
     
     deadlines = await service.get_process_deadlines(process_id)
     return deadlines
+
+# Incluir rotas CNJ
+from .cnj_routes import router as cnj_router
+router.include_router(cnj_router)

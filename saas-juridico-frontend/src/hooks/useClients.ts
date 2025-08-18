@@ -8,7 +8,7 @@ import {
   ClientStats 
 } from "@/types/client";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 export function useClients() {
   const { token } = useAuth();
