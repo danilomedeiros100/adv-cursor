@@ -162,79 +162,279 @@ class ProcessService:
         return [await self._format_process_response(process) for process in processes]
     
     async def get_process_timeline(self, process_id: str) -> List[dict]:
-        """Obtém timeline do processo"""
+        """Obtém timeline de andamentos do processo"""
         from core.models.process import ProcessTimeline
         
-        # Verifica se o processo existe e pertence ao tenant
-        process = self.db.query(Process).filter(
-            Process.id == process_id,
-            Process.tenant_id == self.tenant_id
-        ).first()
-        
-        if not process:
-            return []
-        
-        # Busca os itens da timeline
-        timeline_items = self.db.query(ProcessTimeline).filter(
+        timeline_entries = self.db.query(ProcessTimeline).filter(
             ProcessTimeline.process_id == process_id
         ).order_by(ProcessTimeline.date.desc()).all()
         
-        timeline_data = []
-        for item in timeline_items:
-            timeline_data.append({
-                "id": str(item.id),
-                "process_id": str(item.process_id),
-                "date": item.date.isoformat() if item.date else None,
-                "type": item.type,
-                "description": item.description,
-                "court_decision": item.court_decision,
-                "ai_classification": item.ai_classification,
-                "ai_confidence": item.ai_confidence,
-                "documents": item.documents or [],
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-                "created_by": str(item.created_by) if item.created_by else None
-            })
-        
-        return timeline_data
+        return [entry.to_dict() for entry in timeline_entries]
     
+    async def add_timeline_entry(self, process_id: str, entry_data: dict, user_id: str) -> dict:
+        """Adiciona novo andamento ao processo"""
+        from core.models.process import ProcessTimeline
+        from datetime import datetime
+        
+        timeline_entry = ProcessTimeline(
+            id=uuid.uuid4(),
+            process_id=process_id,
+            date=datetime.fromisoformat(entry_data.get("occurred_at", datetime.now().isoformat())),
+            type=entry_data.get("type", "other"),
+            description=entry_data.get("description", ""),
+            court_decision=entry_data.get("court_decision"),
+            documents=entry_data.get("documents", []),
+            created_by=user_id
+        )
+        
+        self.db.add(timeline_entry)
+        self.db.commit()
+        self.db.refresh(timeline_entry)
+        
+        return timeline_entry.to_dict()
+    
+    async def update_timeline_entry(self, process_id: str, entry_id: str, entry_data: dict, user_id: str) -> Optional[dict]:
+        """Atualiza andamento do processo"""
+        from core.models.process import ProcessTimeline
+        from datetime import datetime
+        
+        timeline_entry = self.db.query(ProcessTimeline).filter(
+            ProcessTimeline.id == entry_id,
+            ProcessTimeline.process_id == process_id
+        ).first()
+        
+        if not timeline_entry:
+            return None
+        
+        # Atualizar campos
+        if "occurred_at" in entry_data:
+            timeline_entry.date = datetime.fromisoformat(entry_data["occurred_at"])
+        if "type" in entry_data:
+            timeline_entry.type = entry_data["type"]
+        if "description" in entry_data:
+            timeline_entry.description = entry_data["description"]
+        if "court_decision" in entry_data:
+            timeline_entry.court_decision = entry_data["court_decision"]
+        if "documents" in entry_data:
+            timeline_entry.documents = entry_data["documents"]
+        
+        self.db.commit()
+        self.db.refresh(timeline_entry)
+        
+        return timeline_entry.to_dict()
+    
+    async def delete_timeline_entry(self, process_id: str, entry_id: str) -> bool:
+        """Remove andamento do processo"""
+        from core.models.process import ProcessTimeline
+        
+        timeline_entry = self.db.query(ProcessTimeline).filter(
+            ProcessTimeline.id == entry_id,
+            ProcessTimeline.process_id == process_id
+        ).first()
+        
+        if not timeline_entry:
+            return False
+        
+        self.db.delete(timeline_entry)
+        self.db.commit()
+        
+        return True
+
     async def get_process_deadlines(self, process_id: str) -> List[dict]:
         """Obtém prazos do processo"""
         from core.models.process import ProcessDeadline
+        from datetime import datetime
         
-        # Verifica se o processo existe e pertence ao tenant
-        process = self.db.query(Process).filter(
-            Process.id == process_id,
-            Process.tenant_id == self.tenant_id
-        ).first()
-        
-        if not process:
-            return []
-        
-        # Busca os prazos
         deadlines = self.db.query(ProcessDeadline).filter(
             ProcessDeadline.process_id == process_id
         ).order_by(ProcessDeadline.due_date.asc()).all()
         
-        deadlines_data = []
+        # Calcular status baseado na data
+        now = datetime.now()
         for deadline in deadlines:
-            deadlines_data.append({
-                "id": str(deadline.id),
-                "process_id": str(deadline.process_id),
-                "title": deadline.title,
-                "description": deadline.description,
-                "due_date": deadline.due_date.isoformat() if deadline.due_date else None,
-                "deadline_type": deadline.deadline_type,
-                "status": deadline.status,
-                "completed_at": deadline.completed_at.isoformat() if deadline.completed_at else None,
-                "completed_by": str(deadline.completed_by) if deadline.completed_by else None,
-                "notify_days_before": deadline.notify_days_before,
-                "is_critical": deadline.is_critical,
-                "created_at": deadline.created_at.isoformat() if deadline.created_at else None,
-                "updated_at": deadline.updated_at.isoformat() if deadline.updated_at else None,
-                "created_by": str(deadline.created_by) if deadline.created_by else None
-            })
+            if deadline.status == "pending":
+                if deadline.due_date < now:
+                    deadline.status = "overdue"
         
-        return deadlines_data
+        return [deadline.to_dict() for deadline in deadlines]
+    
+    async def add_deadline(self, process_id: str, deadline_data: dict, user_id: str) -> dict:
+        """Adiciona novo prazo ao processo"""
+        from core.models.process import ProcessDeadline
+        from datetime import datetime
+        
+        deadline = ProcessDeadline(
+            id=uuid.uuid4(),
+            process_id=process_id,
+            title=deadline_data.get("title", ""),
+            description=deadline_data.get("description"),
+            due_date=datetime.fromisoformat(deadline_data.get("due_date", datetime.now().isoformat())),
+            deadline_type=deadline_data.get("deadline_type", "internal"),
+            notify_days_before=deadline_data.get("notify_days_before", 3),
+            is_critical=deadline_data.get("is_critical", False),
+            status="pending",
+            created_by=user_id
+        )
+        
+        self.db.add(deadline)
+        self.db.commit()
+        self.db.refresh(deadline)
+        
+        return deadline.to_dict()
+    
+    async def complete_deadline(self, process_id: str, deadline_id: str, user_id: str) -> bool:
+        """Marca prazo como concluído"""
+        from core.models.process import ProcessDeadline
+        from datetime import datetime
+        
+        deadline = self.db.query(ProcessDeadline).filter(
+            ProcessDeadline.id == deadline_id,
+            ProcessDeadline.process_id == process_id
+        ).first()
+        
+        if not deadline:
+            return False
+        
+        deadline.status = "completed"
+        deadline.completed_at = datetime.now()
+        deadline.completed_by = user_id
+        
+        self.db.commit()
+        
+        return True
+    
+    async def delete_deadline(self, process_id: str, deadline_id: str) -> bool:
+        """Remove prazo do processo"""
+        from core.models.process import ProcessDeadline
+        
+        deadline = self.db.query(ProcessDeadline).filter(
+            ProcessDeadline.id == deadline_id,
+            ProcessDeadline.process_id == process_id
+        ).first()
+        
+        if not deadline:
+            return False
+        
+        self.db.delete(deadline)
+        self.db.commit()
+        
+        return True
+
+    async def get_process_documents(self, process_id: str) -> List[dict]:
+        """Obtém documentos do processo"""
+        from core.models.document import Document
+        
+        documents = self.db.query(Document).filter(
+            Document.process_id == process_id
+        ).order_by(Document.created_at.desc()).all()
+        
+        return [doc.to_dict() for doc in documents]
+    
+    async def upload_document(self, process_id: str, file, title: str, description: str, tags: List[str], user_id: str) -> dict:
+        """Faz upload de documento para o processo"""
+        from core.models.document import Document
+        import os
+        import shutil
+        from datetime import datetime
+        
+        # Criar diretório se não existir
+        upload_dir = f"uploads/processes/{process_id}"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Salvar arquivo
+        file_extension = os.path.splitext(file.filename)[1]
+        file_name = f"{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join(upload_dir, file_name)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Criar documento no banco
+        document = Document(
+            id=uuid.uuid4(),
+            tenant_id=self.tenant_id,
+            process_id=process_id,
+            title=title,
+            description=description,
+            file_path=file_path,
+            file_size=os.path.getsize(file_path),
+            mime_type=file.content_type,
+            tags=tags,
+            created_by=user_id
+        )
+        
+        self.db.add(document)
+        self.db.commit()
+        self.db.refresh(document)
+        
+        return document.to_dict()
+    
+    async def delete_document(self, process_id: str, document_id: str) -> bool:
+        """Remove documento do processo"""
+        from core.models.document import Document
+        import os
+        
+        document = self.db.query(Document).filter(
+            Document.id == document_id,
+            Document.process_id == process_id
+        ).first()
+        
+        if not document:
+            return False
+        
+        # Remover arquivo físico
+        if os.path.exists(document.file_path):
+            os.remove(document.file_path)
+        
+        self.db.delete(document)
+        self.db.commit()
+        
+        return True
+
+    async def get_process_notes(self, process_id: str) -> List[dict]:
+        """Obtém anotações do processo"""
+        from core.models.process import ProcessNote
+        
+        notes = self.db.query(ProcessNote).filter(
+            ProcessNote.process_id == process_id
+        ).order_by(ProcessNote.created_at.desc()).all()
+        
+        return [note.to_dict() for note in notes]
+    
+    async def add_process_note(self, process_id: str, note_data: dict, user_id: str) -> dict:
+        """Adiciona anotação ao processo"""
+        from core.models.process import ProcessNote
+        
+        note = ProcessNote(
+            id=uuid.uuid4(),
+            process_id=process_id,
+            content=note_data.get("content", ""),
+            mentions=note_data.get("mentions", []),
+            created_by=user_id
+        )
+        
+        self.db.add(note)
+        self.db.commit()
+        self.db.refresh(note)
+        
+        return note.to_dict()
+    
+    async def delete_process_note(self, process_id: str, note_id: str) -> bool:
+        """Remove anotação do processo"""
+        from core.models.process import ProcessNote
+        
+        note = self.db.query(ProcessNote).filter(
+            ProcessNote.id == note_id,
+            ProcessNote.process_id == process_id
+        ).first()
+        
+        if not note:
+            return False
+        
+        self.db.delete(note)
+        self.db.commit()
+        
+        return True
 
     async def _format_process_response(self, process: Process) -> ProcessResponse:
         """Formata a resposta do processo com relacionamentos"""

@@ -1,217 +1,340 @@
-'use client';
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/hooks/useAuth';
-import { CNJStatsCard } from '@/components/CNJStatsCard';
-import {
-  Users,
-  FolderOpen,
-  FileText,
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { 
+  Users, 
+  FileText, 
+  Calendar, 
+  AlertTriangle, 
+  Clock, 
+  TrendingUp,
+  Plus,
+  Eye,
+  CheckCircle,
+  XCircle,
   DollarSign,
-  AlertTriangle,
-} from 'lucide-react';
+  Scale,
+  Upload,
+  Search,
+  RefreshCw
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useProcesses } from "@/hooks/useProcesses";
+import { useClients } from "@/hooks/useClients";
+import { useDashboard } from "@/hooks/useDashboard";
+import { Loading } from "@/components/ui/loading";
+import { toast } from "sonner";
+
+interface DashboardStats {
+  totalProcesses: number;
+  activeProcesses: number;
+  urgentDeadlines: number;
+  pendingTasks: number;
+  completionRate: number;
+  totalClients: number;
+  monthlyRevenue: number;
+}
+
+interface ProcessDeadline {
+  id: string;
+  title: string;
+  due_date: string;
+  process_id: string;
+  process_subject: string;
+  days_left: number;
+  status: 'pending' | 'overdue' | 'completed';
+}
+
+interface RecentActivity {
+  id: string;
+  type: 'process_created' | 'deadline_added' | 'document_uploaded' | 'client_added';
+  title: string;
+  description: string;
+  timestamp: string;
+  process_id?: string;
+}
 
 export default function CompanyDashboardPage() {
   const { user } = useAuth();
+  const { processes, fetchProcesses } = useProcesses();
+  const { clients, fetchClients } = useClients();
+  const { 
+    stats, 
+    urgentDeadlines, 
+    recentActivities, 
+    loading, 
+    error, 
+    refreshDashboard 
+  } = useDashboard();
 
-  const stats = [
-    {
-      title: 'Total de Clientes',
-      value: '156',
-      change: '+12%',
-      changeType: 'positive' as const,
-      icon: Users,
-    },
-    {
-      title: 'Processos Ativos',
-      value: '89',
-      change: '+5%',
-      changeType: 'positive' as const,
-      icon: FolderOpen,
-    },
-    {
-      title: 'Documentos',
-      value: '1,234',
-      change: '+23%',
-      changeType: 'positive' as const,
-      icon: FileText,
-    },
-    {
-      title: 'Receita Mensal',
-      value: 'R$ 45.678',
-      change: '+8%',
-      changeType: 'positive' as const,
-      icon: DollarSign,
-    },
-  ];
+  // Carregar processos e clientes para compatibilidade
+  useEffect(() => {
+    Promise.all([
+      fetchProcesses(),
+      fetchClients()
+    ]);
+  }, []);
 
-  const recentActivities = [
-    {
-      id: 1,
-      type: 'process',
-      title: 'Novo processo criado',
-      description: 'Processo #2024/001 - Cliente João Silva',
-      time: '2 horas atrás',
-    },
-    {
-      id: 2,
-      type: 'document',
-      title: 'Documento assinado',
-      description: 'Petição inicial - Processo #2024/001',
-      time: '4 horas atrás',
-    },
-    {
-      id: 3,
-      type: 'client',
-      title: 'Novo cliente cadastrado',
-      description: 'Maria Santos - Direito Trabalhista',
-      time: '1 dia atrás',
-    },
-  ];
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'process_created':
+        return <Scale className="h-4 w-4 text-blue-600" />;
+      case 'document_uploaded':
+        return <FileText className="h-4 w-4 text-green-600" />;
+      case 'deadline_added':
+        return <Clock className="h-4 w-4 text-orange-600" />;
+      case 'client_added':
+        return <Users className="h-4 w-4 text-purple-600" />;
+      default:
+        return <Eye className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return <Loading message="Carregando dashboard..." />;
+  }
 
   return (
     <div className="space-y-6">
-        {/* Header */}
+      {/* Header */}
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            Bem-vindo de volta, {user?.name}! Aqui está um resumo da sua empresa.
+            Bem-vindo de volta, {user?.name || 'Advogado'}
           </p>
         </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat) => (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  <span className={stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'}>
-                    {stat.change}
-                  </span>{' '}
-                  desde o mês passado
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={refreshDashboard}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
         </div>
+      </div>
 
-        {/* CNJ Integration Stats */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CNJStatsCard />
-        </div>
+      {/* Métricas Principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Processos Ativos</CardTitle>
+            <Scale className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.activeProcesses}</div>
+            <p className="text-xs text-muted-foreground">
+              de {stats.totalProcesses} total
+            </p>
+            <Progress value={stats.completionRate} className="mt-2" />
+          </CardContent>
+        </Card>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Activities */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Atividades Recentes</CardTitle>
-              <CardDescription>
-                Últimas atividades da sua empresa
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-4">
-                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{activity.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {activity.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {activity.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Prazos Urgentes</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{stats.urgentDeadlines}</div>
+            <p className="text-xs text-muted-foreground">
+              precisam de atenção
+            </p>
+          </CardContent>
+        </Card>
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Ações Rápidas</CardTitle>
-              <CardDescription>
-                Acesse rapidamente as funcionalidades principais
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <button className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <Users className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">Novo Cliente</p>
-                      <p className="text-sm text-muted-foreground">Cadastrar cliente</p>
-                    </div>
-                  </div>
-                </button>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tarefas Pendentes</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.pendingTasks}</div>
+            <p className="text-xs text-muted-foreground">
+              aguardando ação
+            </p>
+          </CardContent>
+        </Card>
 
-                <button className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <FolderOpen className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">Novo Processo</p>
-                      <p className="text-sm text-muted-foreground">Criar processo</p>
-                    </div>
-                  </div>
-                </button>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Receita Mensal</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(stats.monthlyRevenue)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <TrendingUp className="h-3 w-3 inline mr-1" />
+              +12% vs mês anterior
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-                <button className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">Novo Documento</p>
-                      <p className="text-sm text-muted-foreground">Criar documento</p>
-                    </div>
-                  </div>
-                </button>
+      {/* Ações Rápidas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Ações Rápidas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button variant="outline" className="h-20 flex-col">
+              <Plus className="h-6 w-6 mb-2" />
+              <span className="text-sm">Novo Processo</span>
+            </Button>
+            
+            <Button variant="outline" className="h-20 flex-col">
+              <FileText className="h-6 w-6 mb-2" />
+              <span className="text-sm">Nova Petição</span>
+            </Button>
+            
+            <Button variant="outline" className="h-20 flex-col">
+              <Calendar className="h-6 w-6 mb-2" />
+              <span className="text-sm">Novo Prazo</span>
+            </Button>
+            
+            <Button variant="outline" className="h-20 flex-col">
+              <Upload className="h-6 w-6 mb-2" />
+              <span className="text-sm">Upload Doc</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-                <button className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <DollarSign className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">Lançamento</p>
-                      <p className="text-sm text-muted-foreground">Registrar receita</p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Prazos Urgentes */}
         <Card className="border-orange-200 bg-orange-50">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-orange-800">
               <AlertTriangle className="h-5 w-5" />
-              <span>Prazos Críticos</span>
+              <span>Prazos Urgentes</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Processo #2024/001 - Petição inicial</span>
-                <span className="text-sm font-medium text-orange-600">Vence em 2 dias</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Processo #2024/002 - Contestação</span>
-                <span className="text-sm font-medium text-orange-600">Vence em 5 dias</span>
-              </div>
+            <div className="space-y-3">
+              {urgentDeadlines.map((deadline) => (
+                <div key={deadline.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <Badge 
+                        variant={deadline.status === 'overdue' ? 'destructive' : 'default'}
+                        className="text-xs"
+                      >
+                        {deadline.status === 'overdue' ? 'ATRASADO' : `${deadline.days_left} dias`}
+                      </Badge>
+                      <span className="font-medium text-sm">{deadline.title}</span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">{deadline.process_subject}</p>
+                  </div>
+                  <Button size="sm" variant="outline">
+                    Ver Processo
+                  </Button>
+                </div>
+              ))}
+              
+              {urgentDeadlines.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                  <p>Nenhum prazo urgente!</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Atividades Recentes */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Atividades Recentes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg">
+                  <div className="mt-1">
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{activity.title}</p>
+                    <p className="text-xs text-gray-600">{activity.description}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {formatDate(activity.timestamp)}
+                    </p>
+                  </div>
+                  {activity.process_id && (
+                    <Button size="sm" variant="ghost">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Processos que Precisam de Atenção */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Processos que Precisam de Atenção</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {processes.filter(p => p.requires_attention).slice(0, 5).map((process) => (
+              <div key={process.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="destructive" className="text-xs">
+                      ATENÇÃO
+                    </Badge>
+                    <span className="font-medium">{process.subject}</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Cliente: {process.client?.name || 'N/A'} • 
+                    CNJ: {process.cnj_number || 'N/A'}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button size="sm" variant="outline">
+                    Ver Detalhes
+                  </Button>
+                  <Button size="sm">
+                    Ação
+                  </Button>
+                </div>
+              </div>
+            ))}
+            
+            {processes.filter(p => p.requires_attention).length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                <p>Nenhum processo precisa de atenção!</p>
+                <p className="text-sm">Todos os processos estão em dia.</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

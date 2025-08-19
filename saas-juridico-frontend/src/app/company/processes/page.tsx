@@ -268,11 +268,10 @@ export default function ProcessesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => {
-                          setSelectedProcess(process);
-                          setIsDetailsOpen(true);
+                          window.location.href = `/company/processes/${process.id}`;
                         }}>
                           <Eye className="w-4 h-4 mr-2" />
-                          Visualizar
+                          Ver Detalhes
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
                           setSelectedProcess(process);

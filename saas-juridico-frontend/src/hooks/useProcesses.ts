@@ -6,7 +6,9 @@ import {
   CreateProcessData, 
   UpdateProcessData, 
   ProcessStats,
-  ProcessListResponse
+  ProcessListResponse,
+  ProcessTimelineEvent,
+  ProcessDeadline
 } from "@/types/process";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -70,17 +72,20 @@ export function useProcesses() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Erro ao criar processo`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Erro ao criar processo");
       }
 
       const newProcess = await response.json();
-      setProcesses(prev => [...prev, newProcess]);
-      toast.success(`Processo criado com sucesso`);
+      toast.success("Processo criado com sucesso!");
+      
+      // Atualizar lista
+      await fetchProcesses();
+      
       return newProcess;
     } catch (error) {
-      console.error(`Erro ao criar processo:`, error);
-      const errorMessage = error instanceof Error ? error.message : `Erro ao criar processo`;
+      console.error("Erro ao criar processo:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao criar processo";
       setError(errorMessage);
       toast.error(errorMessage);
       return null;
@@ -107,19 +112,20 @@ export function useProcesses() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Erro ao atualizar processo`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Erro ao atualizar processo");
       }
 
       const updatedProcess = await response.json();
-      setProcesses(prev => prev.map(process => 
-        process.id === processId ? updatedProcess : process
-      ));
-      toast.success(`Processo atualizado com sucesso`);
+      toast.success("Processo atualizado com sucesso!");
+      
+      // Atualizar lista
+      await fetchProcesses();
+      
       return updatedProcess;
     } catch (error) {
-      console.error(`Erro ao atualizar processo:`, error);
-      const errorMessage = error instanceof Error ? error.message : `Erro ao atualizar processo`;
+      console.error("Erro ao atualizar processo:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao atualizar processo";
       setError(errorMessage);
       toast.error(errorMessage);
       return null;
@@ -145,16 +151,19 @@ export function useProcesses() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Erro ao deletar processo`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Erro ao deletar processo");
       }
 
-      setProcesses(prev => prev.filter(process => process.id !== processId));
-      toast.success(`Processo deletado com sucesso`);
+      toast.success("Processo deletado com sucesso!");
+      
+      // Atualizar lista
+      await fetchProcesses();
+      
       return true;
     } catch (error) {
-      console.error(`Erro ao deletar processo:`, error);
-      const errorMessage = error instanceof Error ? error.message : `Erro ao deletar processo`;
+      console.error("Erro ao deletar processo:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao deletar processo";
       setError(errorMessage);
       toast.error(errorMessage);
       return false;
@@ -163,7 +172,7 @@ export function useProcesses() {
     }
   };
 
-  // Buscar processo específico
+  // Obter processo específico
   const getProcess = async (processId: string): Promise<Process | null> => {
     if (!token) return null;
 
@@ -179,17 +188,68 @@ export function useProcesses() {
       });
 
       if (!response.ok) {
-        throw new Error(`Processo não encontrado`);
+        throw new Error(`Erro ao buscar processo`);
       }
 
       const process = await response.json();
       return process;
     } catch (error) {
       console.error(`Erro ao buscar processo:`, error);
-      setError(`Erro ao buscar processo`);
+      setError(`Erro ao carregar processo`);
+      toast.error(`Erro ao carregar processo`);
       return null;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Obter timeline do processo
+  const getProcessTimeline = async (processId: string): Promise<ProcessTimelineEvent[]> => {
+    if (!token) return [];
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/company/processes/${processId}/timeline`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar timeline`);
+      }
+
+      const timeline = await response.json();
+      return timeline || [];
+    } catch (error) {
+      console.error(`Erro ao buscar timeline:`, error);
+      toast.error(`Erro ao carregar timeline`);
+      return [];
+    }
+  };
+
+  // Obter prazos do processo
+  const getProcessDeadlines = async (processId: string): Promise<ProcessDeadline[]> => {
+    if (!token) return [];
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/company/processes/${processId}/deadlines`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar prazos`);
+      }
+
+      const deadlines = await response.json();
+      return deadlines || [];
+    } catch (error) {
+      console.error(`Erro ao buscar prazos:`, error);
+      toast.error(`Erro ao carregar prazos`);
+      return [];
     }
   };
 
@@ -255,6 +315,8 @@ export function useProcesses() {
     updateProcess,
     deleteProcess,
     getProcess,
+    getProcessTimeline,
+    getProcessDeadlines,
     getProcessStats,
     filterProcesses,
   };
