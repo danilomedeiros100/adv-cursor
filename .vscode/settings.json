@@ -1,0 +1,37 @@
+{
+  "cursor.chat.maxTokens": 8000,
+  "cursor.chat.temperature": 0.7,
+  "cursor.chat.clearContextOnRestart": false,
+  "cursor.chat.persistHistory": true,
+  "cursor.chat.saveConversations": true,
+  "cursor.general.enableLogging": true,
+  "cursor.chat.contextWindow": "large",
+  "cursor.chat.enableCodeContext": true,
+  "cursor.chat.maxHistoryLength": 50,
+  "cursor.workspace.indexing": true,
+  "cursor.workspace.enableSymbolSearch": true,
+  "cursor.workspace.enableSemanticSearch": true,
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/__pycache__/**": true,
+    "**/venv/**": true,
+    "**/.env": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true,
+    "**/__pycache__": true,
+    "**/venv": true
+  },
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": true,
+    "source.organizeImports": true
+  }
+}
