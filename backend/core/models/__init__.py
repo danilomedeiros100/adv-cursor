@@ -6,7 +6,7 @@ from .client import Client
 from .process import Process
 from .document import DocumentTemplate
 from .financial import FinancialRecord, FeeStructure
-from .notification import Notification, NotificationTemplate
+from .notification import ProcessNotification, NotificationPreference
 from .audit import AuditLog, DataAccessLog, SecurityEvent
 from .superadmin import SuperAdmin
 from .user_roles import UserSpecialty, LegalSpecialty
@@ -22,8 +22,8 @@ __all__ = [
     'DocumentTemplate',
     'FinancialRecord',
     'FeeStructure',
-    'Notification',
-    'NotificationTemplate',
+    'ProcessNotification',
+    'NotificationPreference',
     'AuditLog',
     'DataAccessLog',
     'SecurityEvent',

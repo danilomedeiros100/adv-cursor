@@ -13,7 +13,7 @@ from core.models.client import Client
 from core.models.process import Process, ProcessLawyer, ProcessTimeline, ProcessDeadline
 from core.models.document import Document, DocumentTemplate
 from core.models.financial import FinancialRecord, FeeStructure, PaymentMethod
-from core.models.notification import Notification, NotificationTemplate, NotificationPreference
+from core.models.notification import ProcessNotification, NotificationPreference
 from core.models.audit import AuditLog, DataAccessLog, SecurityEvent
 from core.models.user_roles import Role, UserRole, LegalSpecialty, UserSpecialty
 from core.models.superadmin import SuperAdmin

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
 from core.database import get_db
 from apps.company.dashboard.services import CompanyDashboardService
 from apps.auth.routes import get_current_user
+from core.services.dashboard_service import DashboardService as LawyerDashboardService
 
 router = APIRouter(prefix="/dashboard", tags=["Company Dashboard"])
 
@@ -199,3 +200,57 @@ async def get_notifications_summary(
     user_id = current_user["user"].id
     service = CompanyDashboardService(db)
     return await service.get_notifications_summary(user_id)
+
+# ==================== DASHBOARD INTELIGENTE PARA ADVOGADOS ====================
+
+@router.get("/lawyer")
+async def get_lawyer_dashboard(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Retorna dashboard personalizado para o advogado"""
+    tenant_id = current_user["tenant"].id if current_user["tenant"] else None
+    user_id = current_user["user"].id
+    
+    if not tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tenant não encontrado"
+        )
+    
+    service = LawyerDashboardService(db)
+    
+    try:
+        dashboard_data = await service.get_lawyer_dashboard(str(user_id), str(tenant_id))
+        return dashboard_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao obter dashboard: {str(e)}"
+        )
+
+@router.get("/mobile")
+async def get_mobile_dashboard(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Retorna dashboard otimizado para mobile"""
+    tenant_id = current_user["tenant"].id if current_user["tenant"] else None
+    user_id = current_user["user"].id
+    
+    if not tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tenant não encontrado"
+        )
+    
+    service = LawyerDashboardService(db)
+    
+    try:
+        mobile_dashboard = await service.get_mobile_dashboard(str(user_id), str(tenant_id))
+        return mobile_dashboard
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao obter dashboard mobile: {str(e)}"
+        )

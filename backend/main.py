@@ -110,6 +110,14 @@ app.include_router(
     tags=["Specialties"]
 )
 
+# Rotas de Notificações
+from apps.notifications import router as notifications_router
+app.include_router(
+    notifications_router,
+    prefix="/api/v1/company",
+    tags=["Notifications"]
+)
+
 # app.include_router(
 #     documents_router,
 #     prefix="/api/v1/company",

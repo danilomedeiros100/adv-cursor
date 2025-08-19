@@ -18,7 +18,7 @@ from core.models.client import Client
 from core.models.process import Process
 from core.models.document import Document
 from core.models.financial import FinancialRecord
-from core.models.notification import Notification
+from core.models.notification import ProcessNotification
 from core.models.audit import AuditLog
 from core.models.specialty import Specialty
 from core.models.temporary_permissions import TemporaryPermission
@@ -128,7 +128,7 @@ def verify_database_state():
             ("processes", Process),
             ("documents", Document),
             ("financial_records", FinancialRecord),
-            ("notifications", Notification),
+            ("notifications", ProcessNotification),
             ("audit_logs", AuditLog),
             ("specialties", Specialty),
             ("temporary_permissions", TemporaryPermission)

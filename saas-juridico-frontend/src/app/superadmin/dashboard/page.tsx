@@ -73,7 +73,7 @@ export default function SuperAdminDashboard() {
       }
 
       // Buscar estatísticas gerais
-      const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/super-admin/dashboard/overview`, {
+              const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/dashboard/overview`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -87,7 +87,7 @@ export default function SuperAdminDashboard() {
       setStats(statsData);
 
       // Buscar tenants recentes
-      const tenantsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/super-admin/tenants?limit=5`, {
+      const tenantsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/tenants?limit=5`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

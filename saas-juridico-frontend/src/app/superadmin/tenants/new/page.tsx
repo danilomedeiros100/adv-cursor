@@ -68,7 +68,7 @@ export default function NewTenantPage() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/super-admin/tenants`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/tenants`,
         {
           method: 'POST',
           headers: {

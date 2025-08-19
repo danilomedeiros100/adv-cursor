@@ -63,7 +63,7 @@ export default function TenantsPage() {
         throw new Error('Token não encontrado');
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/super-admin/tenants`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/tenants`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -128,13 +128,13 @@ export default function TenantsPage() {
 
       switch (action) {
         case 'activate':
-          endpoint = `/superadmin/super-admin/tenants/${tenantId}/activate`;
+          endpoint = `/superadmin/tenants/${tenantId}/activate`;
           break;
         case 'suspend':
-          endpoint = `/superadmin/super-admin/tenants/${tenantId}/suspend`;
+          endpoint = `/superadmin/tenants/${tenantId}/suspend`;
           break;
         case 'deactivate':
-          endpoint = `/superadmin/super-admin/tenants/${tenantId}`;
+          endpoint = `/superadmin/tenants/${tenantId}`;
           method = 'DELETE';
           break;
       }
@@ -169,7 +169,7 @@ export default function TenantsPage() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/super-admin/tenants/${tenantId}`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/superadmin/tenants/${tenantId}`,
         {
           method: 'DELETE',
           headers: {
